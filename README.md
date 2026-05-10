@@ -169,3 +169,7 @@ git push origin main
 - Keep skills tool-agnostic where possible.
 - Put private client or company details in a private repo instead.
 - Keep `SKILL.md` concise and action-oriented.
+
+## Author
+
+Danish Ashraf · danish.ashraf@codehills.net · https://codehills.net
