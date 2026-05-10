@@ -1,0 +1,4 @@
+interface:
+  display_name: "SOP Checklist Builder"
+  short_description: "Create SOPs and checklists."
+  default_prompt: "Turn this repeated manual process into an SOP and checklist."

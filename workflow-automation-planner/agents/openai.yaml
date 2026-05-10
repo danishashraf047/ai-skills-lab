@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workflow Automation Planner"
+  short_description: "Create practical automation plans."
+  default_prompt: "Help me reduce manual work by turning this workflow into an automation plan."
