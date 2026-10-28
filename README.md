@@ -6,6 +6,7 @@ Portable AI skills for reducing manual work, documenting workflows, and building
 
 - `workflow-automation-planner`: Turns repetitive manual workflows into practical automation plans.
 - `sop-checklist-builder`: Converts repeatable work into SOPs, checklists, handoff docs, and quality checks.
+- `shopify-product-asset-renamer`: Renames Shopify product images with BBS metadata, continued numbering, randomized discounts, and calculated original prices.
 
 ## How To Use
 
@@ -34,6 +35,7 @@ If you want Codex to auto-discover a skill, copy that skill folder into your Cod
 ```bash
 cp -R workflow-automation-planner ~/.codex/skills/
 cp -R sop-checklist-builder ~/.codex/skills/
+cp -R shopify-product-asset-renamer ~/.codex/skills/
 ```
 
 Then start a new Codex session and ask:
@@ -79,6 +81,12 @@ ai-skills-lab/
     SKILL.md
     agents/
       openai.yaml
+  shopify-product-asset-renamer/
+    SKILL.md
+    agents/
+      openai.yaml
+    scripts/
+      rename-product-assets.mjs
 ```
 
 ## Create More Skills

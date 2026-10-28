@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shopify Product Asset Renamer"
+  short_description: "Rename Shopify images with pricing metadata"
+  default_prompt: "Use $shopify-product-asset-renamer to rename product images in a final folder and continue the BBS numbering."
