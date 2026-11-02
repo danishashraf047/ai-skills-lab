@@ -1,0 +1,169 @@
+query ProductUploadContext {
+  shop {
+    name
+    currencyCode
+  }
+  publications(first: 20) {
+    nodes {
+      id
+      catalog {
+        title
+      }
+    }
+  }
+}
+
+query ProductUploadProduct(
+  $handle: String!
+  $publicationId: ID!
+  $sizeGuideNamespace: String!
+  $sizeGuideKey: String!
+) {
+  productByIdentifier(identifier: { handle: $handle }) {
+    id
+    handle
+    status
+    tags
+    sizeGuide: metafield(namespace: $sizeGuideNamespace, key: $sizeGuideKey) {
+      jsonValue
+    }
+    publishedOnPublication(publicationId: $publicationId)
+    collections(first: 100) {
+      nodes {
+        id
+      }
+    }
+    variants(first: 100) {
+      nodes {
+        title
+        price
+        compareAtPrice
+        sku
+      }
+    }
+    media(first: 100) {
+      nodes {
+        status
+      }
+    }
+  }
+}
+
+query ProductUploadSizeGuides($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Metaobject {
+      id
+      type
+    }
+  }
+}
+
+query ProductUploadCollections($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Collection {
+      id
+      title
+      sources {
+        __typename
+        id
+      }
+    }
+  }
+}
+
+mutation ProductUploadStage($input: [StagedUploadInput!]!) {
+  stagedUploadsCreate(input: $input) {
+    stagedTargets {
+      url
+      resourceUrl
+      parameters {
+        name
+        value
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation ProductUploadProductSet($input: ProductSetInput!) {
+  productSet(input: $input, synchronous: true) {
+    product {
+      id
+      handle
+      tags
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation ProductUploadPublish($id: ID!, $input: [PublicationInput!]!) {
+  publishablePublish(id: $id, input: $input) {
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation ProductUploadSetMetafields($metafields: [MetafieldsSetInput!]!) {
+  metafieldsSet(metafields: $metafields) {
+    metafields {
+      namespace
+      key
+      jsonValue
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+
+mutation ProductUploadAddToFlexibleCollection(
+  $collectionId: ID!
+  $sourceId: ID!
+  $selections: [CollectionInclusionProductSelectionInput!]!
+) {
+  collectionUpdate(
+    collection: {
+      id: $collectionId
+      sourcesToUpdate: [
+        {
+          condition: {
+            id: $sourceId
+            inclusion: { selectionsToAdd: $selections }
+          }
+        }
+      ]
+    }
+  ) {
+    collection {
+      id
+      title
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation ProductUploadAddToLegacyCollection($id: ID!, $productIds: [ID!]!) {
+  collectionAddProducts(id: $id, productIds: $productIds) {
+    collection {
+      id
+      title
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

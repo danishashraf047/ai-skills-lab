@@ -1,0 +1,52 @@
+{
+  "store": "example-store.myshopify.com",
+  "apiVersion": "2026-10",
+  "currency": "USD",
+  "vendor": "Example Brand",
+  "managedTag": "managed-product-upload-v1",
+  "titlePrefix": "SKU",
+  "sizeGuideMetafield": {
+    "namespace": "custom",
+    "key": "size_guide",
+    "metaobjectType": "size_guide"
+  },
+  "collections": {
+    "sale": {
+      "id": "gid://shopify/Collection/000000000001",
+      "title": "Sale",
+      "tag": "Sale"
+    },
+    "sale-20": {
+      "id": "gid://shopify/Collection/000000000020",
+      "title": "Sale 20% Off",
+      "tag": "20% Off"
+    },
+    "sale-30": {
+      "id": "gid://shopify/Collection/000000000030",
+      "title": "Sale 30% Off",
+      "tag": "30% Off"
+    },
+    "sale-40": {
+      "id": "gid://shopify/Collection/000000000040",
+      "title": "Sale 40% Off",
+      "tag": "40% Off"
+    },
+    "women-casual": {
+      "id": "gid://shopify/Collection/000000000100",
+      "title": "Women Casual",
+      "tag": "Women Casual"
+    }
+  },
+  "discountCollections": {
+    "20": "sale-20",
+    "30": "sale-30",
+    "40": "sale-40"
+  },
+  "profiles": {
+    "women-casual": {
+      "productType": "Women Casual",
+      "tags": ["Women", "Women Casual"],
+      "collections": ["women-casual", "sale"]
+    }
+  }
+}

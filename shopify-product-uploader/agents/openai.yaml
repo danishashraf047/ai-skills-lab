@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shopify Product Uploader"
+  short_description: "Upload verified product batches to Shopify"
+  default_prompt: "Use $shopify-product-uploader to dry-run and upload a prepared product batch to Shopify."
