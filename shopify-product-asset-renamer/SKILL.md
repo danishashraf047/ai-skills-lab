@@ -1,6 +1,6 @@
 ---
 name: shopify-product-asset-renamer
-description: Rename Shopify product image files into the BBS metadata convention, continue title numbering across assets-to-upload, assign allowed random discounts, and calculate original prices. Use when a user asks to prepare or rename product assets in a final folder for Shopify upload. Do not use for uploading files to Shopify or editing image pixels.
+description: Rename Shopify product images into the BBS metadata convention, including grouped multi-image products, optional size-guide IDs, continued title numbering, random discounts, and calculated original prices. Use when a user asks to prepare or rename product assets in a final folder for Shopify upload. Do not use for uploading files to Shopify or editing image pixels.
 ---
 
 # Shopify Product Asset Renamer
@@ -15,10 +15,19 @@ Create names in this exact form:
 (TITLE\BBS-19)-(SALE PRICE\2499)-(SIZES\Unstitched)-(DESCRIPTION\Allover Print Khaddar)-(DISCOUNT PERCENTAGE\20)-(ORIGINAL PRICE\3124).png
 ```
 
+For a product with multiple images and a size-guide metaobject, use:
+
+```text
+(TITLE\BBS-46)-(SALE PRICE\3499)-(SIZES\S-M-L-XL)-(DESCRIPTION\Kaftan Khaddar)-(DISCOUNT PERCENTAGE\20)-(ORIGINAL PRICE\4374)-(SIZE GUIDE\644285366369)-(IMAGE\01).png
+```
+
 - Continue numbering after the highest existing `TITLE\<prefix>-N` found under `assets-to-upload`, unless the user provides a starting number.
 - Preserve sale price, sizes, description, and extension from source metadata.
 - Pick each discount from 20, 30, or 40 percent unless the user supplies a different allowed set.
 - Calculate `original = round(sale / (1 - discount / 100))`.
+- Keep one title, discount, original price, and size-guide ID across every image in a product group.
+- Number grouped images with two digits. `IMAGE\01` is the featured image, followed by `IMAGE\02`, `IMAGE\03`, and so on.
+- Store only the numeric Shopify metaobject entry ID in `SIZE GUIDE`; do not embed an Admin URL or GID in the filename.
 - Treat unstitched products as `SIZES\Unstitched` when the folder path says `Unstiched` or `Unstitched` and no sizes are encoded.
 - Do not invent a missing description or ready-to-wear size. Supply an override only when it is supported by the user's request or folder context; otherwise ask.
 
@@ -37,6 +46,19 @@ node <skill-dir>/scripts/rename-product-assets.mjs '<folder>'
 ```bash
 node <skill-dir>/scripts/rename-product-assets.mjs '<folder>' --seed '<seed-from-preview>' --apply
 ```
+
+For grouped source images such as `46.png` and `46-1.png`, use multi-image mode with the product metadata supplied by the user:
+
+```bash
+node <skill-dir>/scripts/rename-product-assets.mjs '<folder>' \
+  --multi-image \
+  --sale-price 3499 \
+  --sizes 'S-M-L-XL' \
+  --description 'Kaftan Khaddar' \
+  --size-guide 644285366369
+```
+
+In multi-image mode, `<group>.png` becomes `IMAGE\01`, `<group>-1.png` becomes `IMAGE\02`, and files sharing the same group number become one product. Reuse the dry-run seed when applying.
 
 5. Report the number of files renamed and the new title range. Mention any rounding used for original prices.
 

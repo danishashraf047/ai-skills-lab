@@ -25,17 +25,22 @@ Options:
   --discounts <list>      Comma-separated percentages (default: 20,30,40).
   --description <text>    Description override for files that do not encode one.
   --sizes <text>          Size override for files that do not encode sizes.
+  --multi-image           Group <number> and <number>-<index> files as one product.
+  --sale-price <number>   Sale price for grouped multi-image products.
+  --size-guide <id>       Numeric Shopify size-guide metaobject entry ID.
   --seed <text>           Reuse a dry-run seed so discounts remain identical.
   --help                  Show this message.
 
 Examples:
   node rename-product-assets.mjs 'assets-to-upload/Pret/Casual/final'
-  node rename-product-assets.mjs 'assets-to-upload/Unstiched/2 Piece/final' --seed abc123 --apply`);
+  node rename-product-assets.mjs 'assets-to-upload/Unstiched/2 Piece/final' --seed abc123 --apply
+  node rename-product-assets.mjs 'assets-to-upload/Pret/Casual/final' --multi-image --sale-price 3499 --sizes S-M-L-XL --description 'Kaftan Khaddar' --size-guide 644285366369`);
 }
 
 function parseArgs(argv) {
   const options = {
     apply: false,
+    multiImage: false,
     prefix: 'BBS',
     discounts: [20, 30, 40],
   };
@@ -49,6 +54,10 @@ function parseArgs(argv) {
     }
     if (arg === '--apply') {
       options.apply = true;
+      continue;
+    }
+    if (arg === '--multi-image') {
+      options.multiImage = true;
       continue;
     }
     if (!arg.startsWith('--')) {
@@ -67,6 +76,8 @@ function parseArgs(argv) {
     else if (key === 'discounts') options.discounts = value.split(',').map(Number);
     else if (key === 'description') options.description = value;
     else if (key === 'sizes') options.sizes = value;
+    else if (key === 'sale-price') options.salePrice = Number(value);
+    else if (key === 'size-guide') options.sizeGuide = value;
     else if (key === 'seed') options.seed = value;
     else fail(`Unknown option: ${arg}`);
   }
@@ -80,6 +91,13 @@ function parseArgs(argv) {
   }
   if (!options.discounts.length || options.discounts.some((value) => !Number.isFinite(value) || value <= 0 || value >= 100)) {
     fail('--discounts must contain percentages greater than 0 and less than 100.');
+  }
+  if (options.salePrice !== undefined && (!Number.isInteger(options.salePrice) || options.salePrice < 1)) {
+    fail('--sale-price must be a positive integer.');
+  }
+  if (options.multiImage && options.salePrice === undefined) fail('--sale-price is required with --multi-image.');
+  if (options.sizeGuide !== undefined && !/^\d+$/.test(options.sizeGuide)) {
+    fail('--size-guide must be a numeric Shopify metaobject entry ID.');
   }
 
   return options;
@@ -131,6 +149,23 @@ function parseSource(filename, options) {
   const basename = path.basename(filename, extension);
   if (STANDARD_TITLE_RE.test(basename)) return { standardized: true };
 
+  if (options.multiImage) {
+    const grouped = basename.match(/^(\d+)(?:-(\d+))?$/);
+    if (!grouped) fail(`Cannot parse grouped source filename: ${filename}`);
+    if (!options.description) fail(`Missing description for ${filename}. Use --description with a supported value.`);
+    if (!options.sizes) fail(`Missing sizes for ${filename}. Use --sizes with a supported value.`);
+    const imageNumber = grouped[2] === undefined ? 1 : Number(grouped[2]) + 1;
+    if (!Number.isSafeInteger(imageNumber) || imageNumber < 1) fail(`Invalid image index in ${filename}.`);
+    return {
+      sourceIndex: Number(grouped[1]),
+      imageNumber,
+      sale: options.salePrice,
+      sizes: validateMetadata('Sizes', options.sizes),
+      description: validateMetadata('Description', options.description),
+      extension,
+    };
+  }
+
   const main = basename.match(/^(\d+)-(\d+)(?:-(.*))?$/);
   if (!main) fail(`Cannot parse source filename: ${filename}`);
 
@@ -173,9 +208,12 @@ function chooseDiscount(seed, sourceName, discounts) {
   return discounts[digest.readUInt32BE(0) % discounts.length];
 }
 
-function targetName(item, titleNumber, prefix, discount) {
+function targetName(item, titleNumber, prefix, discount, sizeGuide) {
   const original = Math.round(item.sale / (1 - discount / 100));
-  const name = `(TITLE\\${prefix}-${titleNumber})-(SALE PRICE\\${item.sale})-(SIZES\\${item.sizes})-(DESCRIPTION\\${item.description})-(DISCOUNT PERCENTAGE\\${discount})-(ORIGINAL PRICE\\${original})${item.extension}`;
+  let name = `(TITLE\\${prefix}-${titleNumber})-(SALE PRICE\\${item.sale})-(SIZES\\${item.sizes})-(DESCRIPTION\\${item.description})-(DISCOUNT PERCENTAGE\\${discount})-(ORIGINAL PRICE\\${original})`;
+  if (sizeGuide) name += `-(SIZE GUIDE\\${sizeGuide})`;
+  if (item.imageNumber !== undefined) name += `-(IMAGE\\${String(item.imageNumber).padStart(2, '0')})`;
+  name += item.extension;
   return { name, original };
 }
 
@@ -214,30 +252,51 @@ const entries = fs.readdirSync(options.folder, { withFileTypes: true })
   .filter((entry) => entry.isFile() && !entry.name.startsWith('.'))
   .map((entry) => ({ name: entry.name, parsed: parseSource(entry.name, options) }))
   .filter((entry) => entry.parsed && !entry.parsed.standardized)
-  .sort((left, right) => left.parsed.sourceIndex - right.parsed.sourceIndex || left.name.localeCompare(right.name));
+  .sort((left, right) => left.parsed.sourceIndex - right.parsed.sourceIndex
+    || (left.parsed.imageNumber ?? 0) - (right.parsed.imageNumber ?? 0)
+    || left.name.localeCompare(right.name));
 
 if (!entries.length) {
   console.log('No unstandardized product images found. Nothing to rename.');
   process.exit(0);
 }
 
-const duplicateIndexes = entries.filter((entry, index) => index > 0 && entry.parsed.sourceIndex === entries[index - 1].parsed.sourceIndex);
-if (duplicateIndexes.length) fail(`Duplicate source index: ${duplicateIndexes[0].parsed.sourceIndex}`);
+if (options.multiImage) {
+  const seenImages = new Set();
+  for (const entry of entries) {
+    const key = `${entry.parsed.sourceIndex}:${entry.parsed.imageNumber}`;
+    if (seenImages.has(key)) fail(`Duplicate image index in source group: ${key}`);
+    seenImages.add(key);
+  }
+} else {
+  const duplicateIndexes = entries.filter((entry, index) => index > 0 && entry.parsed.sourceIndex === entries[index - 1].parsed.sourceIndex);
+  if (duplicateIndexes.length) fail(`Duplicate source index: ${duplicateIndexes[0].parsed.sourceIndex}`);
+}
 
 const seed = options.seed ?? crypto.randomBytes(12).toString('hex');
 const firstTitle = options.start ?? highestTitle(assetsRoot, options.prefix) + 1;
-const plan = entries.map((entry, index) => {
-  const discount = chooseDiscount(seed, entry.name, options.discounts);
-  const titleNumber = firstTitle + index;
-  const target = targetName(entry.parsed, titleNumber, options.prefix, discount);
+const groups = new Map();
+for (const entry of entries) {
+  if (!groups.has(entry.parsed.sourceIndex)) {
+    const titleNumber = firstTitle + groups.size;
+    const discountKey = options.multiImage ? `group-${entry.parsed.sourceIndex}` : entry.name;
+    groups.set(entry.parsed.sourceIndex, {
+      titleNumber,
+      discount: chooseDiscount(seed, discountKey, options.discounts),
+    });
+  }
+}
+const plan = entries.map((entry) => {
+  const group = groups.get(entry.parsed.sourceIndex);
+  const target = targetName(entry.parsed, group.titleNumber, options.prefix, group.discount, options.sizeGuide);
   return {
     source: path.join(options.folder, entry.name),
     target: path.join(options.folder, target.name),
     sourceName: entry.name,
     targetName: target.name,
-    titleNumber,
+    titleNumber: group.titleNumber,
     sale: entry.parsed.sale,
-    discount,
+    discount: group.discount,
     original: target.original,
   };
 });
@@ -253,7 +312,9 @@ console.log(`Mode: ${options.apply ? 'apply' : 'dry-run'}`);
 console.log(`Folder: ${options.folder}`);
 console.log(`Assets root: ${assetsRoot}`);
 console.log(`Seed: ${seed}`);
-console.log(`Title range: ${options.prefix}-${plan[0].titleNumber} through ${options.prefix}-${plan.at(-1).titleNumber}`);
+console.log(`Products: ${groups.size}`);
+console.log(`Images: ${plan.length}`);
+console.log(`Title range: ${options.prefix}-${firstTitle} through ${options.prefix}-${firstTitle + groups.size - 1}`);
 console.log('');
 for (const item of plan) {
   console.log(`${item.sourceName}`);
