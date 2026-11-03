@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shopify Product Updater"
+  short_description: "Safely update existing Shopify product batches"
+  default_prompt: "Use $shopify-product-updater to dry-run and update existing Shopify products from assets-updated/final."

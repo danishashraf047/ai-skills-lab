@@ -1,0 +1,153 @@
+# -- productState --
+query ProductUpdaterState($handle: String!) {
+  productByIdentifier(identifier: {handle: $handle}) {
+    id
+    title
+    handle
+    descriptionHtml
+    tags
+    collections(first: 100) {
+      nodes { id title }
+      pageInfo { hasNextPage }
+    }
+    media(first: 100) {
+      nodes {
+        id
+        alt
+        mediaContentType
+        status
+        ... on MediaImage { image { url } }
+      }
+      pageInfo { hasNextPage }
+    }
+  }
+}
+
+# -- collections --
+query ProductUpdaterCollections($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Collection {
+      id
+      title
+      sources {
+        __typename
+        id
+        app { id }
+        ... on CollectionConditionsSource {
+          targetType
+          inclusion {
+            selections(first: 250) {
+              nodes { product { id } variantIds }
+              pageInfo { hasNextPage }
+            }
+          }
+          exclusion {
+            selections(first: 250) {
+              nodes { product { id } }
+              pageInfo { hasNextPage }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# -- stagedUpload --
+mutation ProductUpdaterStage($input: [StagedUploadInput!]!) {
+  stagedUploadsCreate(input: $input) {
+    stagedTargets { url resourceUrl parameters { name value } }
+    userErrors { field message }
+  }
+}
+
+# -- fileCreate --
+mutation ProductUpdaterFileCreate($files: [FileCreateInput!]!) {
+  fileCreate(files: $files) {
+    files { id fileStatus }
+    userErrors { field message code }
+  }
+}
+
+# -- files --
+query ProductUpdaterFiles($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on MediaImage { id fileStatus image { url } }
+  }
+}
+
+# -- productUpdate --
+mutation ProductUpdaterProduct($product: ProductUpdateInput!, $media: [CreateMediaInput!]) {
+  productUpdate(product: $product, media: $media) {
+    product { id handle }
+    userErrors { field message }
+  }
+}
+
+# -- reorderMedia --
+mutation ProductUpdaterReorder($id: ID!, $moves: [MoveInput!]!) {
+  productReorderMedia(id: $id, moves: $moves) {
+    job { id done }
+    mediaUserErrors { field message code }
+  }
+}
+
+# -- job --
+query ProductUpdaterJob($id: ID!) {
+  job(id: $id) { id done }
+}
+
+# -- flexibleSelection --
+mutation ProductUpdaterFlexibleSelection(
+  $collectionId: ID!
+  $sourceId: ID!
+  $inclusionsToAdd: [CollectionInclusionProductSelectionInput!]
+  $inclusionsToRemove: [CollectionInclusionProductSelectionInput!]
+  $exclusionsToAdd: [CollectionExclusionProductSelectionInput!]
+  $exclusionsToRemove: [CollectionExclusionProductSelectionInput!]
+) {
+  collectionUpdate(collection: {
+    id: $collectionId
+    sourcesToUpdate: [{
+      condition: {
+        id: $sourceId
+        inclusion: {
+          selectionsToAdd: $inclusionsToAdd
+          selectionsToRemove: $inclusionsToRemove
+        }
+        exclusion: {
+          selectionsToAdd: $exclusionsToAdd
+          selectionsToRemove: $exclusionsToRemove
+        }
+      }
+    }]
+  }) {
+    collection { id title }
+    job { id done }
+    userErrors { field message }
+  }
+}
+
+# -- collectionAdd --
+mutation ProductUpdaterCollectionAdd($id: ID!, $productIds: [ID!]!) {
+  collectionAddProducts(id: $id, productIds: $productIds) {
+    collection { id title }
+    userErrors { field message }
+  }
+}
+
+# -- collectionRemove --
+mutation ProductUpdaterCollectionRemove($id: ID!, $productIds: [ID!]!) {
+  collectionRemoveProducts(id: $id, productIds: $productIds) {
+    job { id done }
+    userErrors { field message }
+  }
+}
+
+# -- fileDelete --
+mutation ProductUpdaterFileDelete($fileIds: [ID!]!) {
+  fileDelete(fileIds: $fileIds) {
+    deletedFileIds
+    userErrors { field message code }
+  }
+}
