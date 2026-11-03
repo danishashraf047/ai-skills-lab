@@ -314,6 +314,13 @@ async function execute(temp, sequence, query, variables = {}, mutation = false) 
     const errors = operationErrors(result);
     if (errors) fail(JSON.stringify(errors));
     return result.data || result;
+  } catch (error) {
+    const stdout = typeof error?.stdout === "string" ? error.stdout.trim() : "";
+    const stderr = typeof error?.stderr === "string" ? error.stderr.trim() : "";
+    const details = [stdout, stderr].filter(Boolean).join("\n");
+    if (!details) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw Error(`${message}\n${details}`, { cause: error });
   } finally {
     fs.rmSync(queryFile, { force: true });
     fs.rmSync(variableFile, { force: true });
@@ -672,7 +679,6 @@ async function rollbackProduct(executeOperation, product, createdFileIds) {
   try {
     await executeOperation(operations.productUpdate, {
       product: { id: product.state.id, descriptionHtml: product.state.descriptionHtml, tags: product.state.tags },
-      media: [],
     }, true);
   } catch (error) {
     errors.push(`fields: ${error.message}`);
@@ -819,15 +825,14 @@ try {
           record.createdFiles.push(created);
           saveReceipt(receiptFile, receipt);
         }
-        const media = record.createdFiles.map((file) => ({
-          originalSource: file.id,
-          contentType: "IMAGE",
-          alt: `${product.title} - ${file.filename}`,
-        }));
         await executeOperation(operations.productUpdate, {
           product: { id: product.state.id, descriptionHtml: product.desiredDescription, tags: product.desiredTags },
-          media,
         }, true);
+        for (const file of record.createdFiles) {
+          await executeOperation(operations.fileUpdate, {
+            files: [{ id: file.id, referencesToAdd: [product.state.id] }],
+          }, true);
+        }
 
         const createdIds = record.createdFiles.map((item) => item.id);
         const desiredMediaIds = product.placement === "first"

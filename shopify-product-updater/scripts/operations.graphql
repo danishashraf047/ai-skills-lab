@@ -69,6 +69,14 @@ mutation ProductUpdaterFileCreate($files: [FileCreateInput!]!) {
   }
 }
 
+# -- fileUpdate --
+mutation ProductUpdaterFileUpdate($files: [FileUpdateInput!]!) {
+  fileUpdate(files: $files) {
+    files { id }
+    userErrors { field message code }
+  }
+}
+
 # -- files --
 query ProductUpdaterFiles($ids: [ID!]!) {
   nodes(ids: $ids) {
@@ -77,8 +85,8 @@ query ProductUpdaterFiles($ids: [ID!]!) {
 }
 
 # -- productUpdate --
-mutation ProductUpdaterProduct($product: ProductUpdateInput!, $media: [CreateMediaInput!]) {
-  productUpdate(product: $product, media: $media) {
+mutation ProductUpdaterProduct($product: ProductUpdateInput!) {
+  productUpdate(product: $product) {
     product { id handle }
     userErrors { field message }
   }
